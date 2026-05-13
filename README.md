@@ -65,7 +65,7 @@ covid-dashboard/
 
 ```bash
 # 1. Clone
-git clone https://github.com/<your-username>/covid-dashboard.git
+git clone https://github.com/skerk001/covid-dashboard.git
 cd covid-dashboard
 
 # 2. (Recommended) Create a virtual environment
