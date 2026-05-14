@@ -1,5 +1,22 @@
+# --- core (static dashboard + notebook) ---
 pandas>=2.0
 numpy>=1.24
 matplotlib>=3.7
 seaborn>=0.13
-jupyter>=1.0  # only needed if you want to run the notebook
+
+# --- forecasting (SIR/SEIR model fitting) ---
+scipy>=1.10
+
+# --- interactive: choropleth maps + Dash app ---
+plotly>=5.18
+dash>=2.14
+
+# --- optional ---
+jupyter>=1.0      # only needed to run notebooks/covid_analysis.ipynb
+kaleido>=0.2      # only needed to export the choropleth as a static PNG;
+                  # the interactive .html is written without it
+prophet>=1.1      # optional 3rd forecasting model (statistical, additive).
+                  # Heavy: pulls in cmdstanpy + a compiler toolchain. The
+                  # SIR/SEIR models in models/epidemic_models.py need only
+                  # scipy and run without this. If prophet is absent, the
+                  # forecast chart/tab simply omit the Prophet line.

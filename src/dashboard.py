@@ -6,14 +6,31 @@ Run from the project root:
 
 This will (1) ensure the dataset is cached locally, (2) generate all
 charts into outputs/, and (3) print a textual summary report.
+
+Charts 01–10 are the original static set (visualizations.py).
+Charts 11–14 are the extended set:
+    11  hospitalization & ICU occupancy
+    12  global waves with variant bands
+    13  SIR/SEIR/Prophet forecast vs actuals
+    14  interactive choropleth (.html; .png too if `kaleido` is installed)
+
+For the fully interactive experience (live country/date filtering), run
+the Dash app instead:
+    python interactive/app.py
 """
 
 from __future__ import annotations
 
 import argparse
+import sys
 from pathlib import Path
 
 import pandas as pd
+
+# models/ is a sibling of src/ — add it so the forecast charts can import
+# epidemic_models. (src/ itself is already the script's own directory.)
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT / "models"))
 
 from data_loader import (
     download_data,
@@ -34,9 +51,14 @@ from visualizations import (
     plot_excess_mortality,
     plot_stringency_vs_cases,
 )
+from visualizations_extra import (
+    plot_hospitalization,
+    plot_waves_with_variants,
+    plot_forecast,
+)
+from choropleth import save_choropleth_html, save_choropleth_png
 
 
-ROOT = Path(__file__).resolve().parent.parent
 OUTDIR = ROOT / "outputs"
 
 
@@ -83,6 +105,8 @@ def main() -> None:
                         help="Force re-download of the dataset")
     parser.add_argument("--outdir", type=Path, default=OUTDIR,
                         help="Output directory for charts (default: ./outputs)")
+    parser.add_argument("--skip-extras", action="store_true",
+                        help="Only render the original charts 01-10")
     args = parser.parse_args()
 
     apply_style()
@@ -116,13 +140,35 @@ def main() -> None:
         ("Stringency vs cases", plot_stringency_vs_cases,
          (countries, args.outdir)),
     ]
+    if not args.skip_extras:
+        charts += [
+            ("Hospitalization & ICU", plot_hospitalization,
+             (countries, args.outdir)),
+            ("Waves with variant bands", plot_waves_with_variants,
+             (aggregates, args.outdir)),
+            ("SIR/SEIR/Prophet forecast", plot_forecast, (countries, args.outdir)),
+        ]
+
     for label, fn, fargs in charts:
         print(f"  Rendering: {label} ...", end=" ", flush=True)
         path = fn(*fargs)
         print(f"→ {path.relative_to(ROOT)}")
 
+    # Choropleth is handled separately — it writes HTML (always) and PNG
+    # (only if kaleido is available), so it doesn't fit the uniform loop.
+    if not args.skip_extras:
+        print("  Rendering: Choropleth map ...", end=" ", flush=True)
+        html_path = save_choropleth_html(countries, args.outdir,
+                                         metric="total_deaths_per_million")
+        print(f"→ {html_path.relative_to(ROOT)}")
+        save_choropleth_png(countries, args.outdir,
+                            metric="total_deaths_per_million")
+
     print_summary(countries, aggregates)
-    print(f"All charts saved to: {args.outdir}\n")
+    print(f"All charts saved to: {args.outdir}")
+    if not args.skip_extras:
+        print("\nFor live country/date filtering, run the interactive app:")
+        print("    python interactive/app.py\n")
 
 
 if __name__ == "__main__":

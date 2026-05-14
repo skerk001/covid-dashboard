@@ -2,8 +2,9 @@
 data/*.csv
 
 # Generated outputs — regenerate with `python src/dashboard.py`
-# (Remove this line if you want the sample charts in your repo)
+# (Remove these lines if you want the sample charts/maps in your repo)
 # outputs/*.png
+# outputs/*.html
 
 # Python
 __pycache__/
