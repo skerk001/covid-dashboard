@@ -47,6 +47,8 @@ The app loads the dataset once at startup; callbacks only filter, so the UI stay
 
 ## Sample outputs (static dashboard)
 
+> **Heads up:** all the chart images below live in [`outputs/`](outputs/) and are produced by `python src/dashboard.py`. If you've just cloned the repo and the images below show up as broken links on GitHub, the PNGs simply haven't been generated yet — see [Generating the charts](#generating-the-charts) below.
+
 ### Global waves
 ![Global waves](outputs/01_global_waves.png)
 
@@ -55,6 +57,8 @@ The app loads the dataset once at startup; callbacks only filter, so the UI stay
 
 ### Vaccination coverage — highest vs lowest
 ![Vaccination](outputs/04_vaccination_coverage.png)
+
+A handful of countries (UAE, Gibraltar, Cuba, etc.) legitimately exceed 100% in OWID's `people_fully_vaccinated_per_hundred` because doses are counted against the *resident* population — see the chart's footnote.
 
 ### Wealth vs vaccination — the equity divide
 ![Wealth vs vax](outputs/05_wealth_vs_vaccination.png)
@@ -70,6 +74,38 @@ The most striking finding in the dataset: for many countries (Russia, Bulgaria, 
 ![Forecast](outputs/13_forecast.png)
 
 The full set of charts lives in [`outputs/`](outputs/). The choropleth is written as an interactive `.html` file (and a `.png` too, if `kaleido` is installed).
+
+---
+
+## Generating the charts
+
+The PNGs in [`outputs/`](outputs/) are *generated artefacts* — there's no point hand-crafting them, and they go stale every time the OWID dataset updates. They're produced by:
+
+```bash
+python src/dashboard.py
+```
+
+The first run downloads the dataset (~94 MB) and caches it under `data/`. Subsequent runs use the cache. Use `--refresh` to force re-download:
+
+```bash
+python src/dashboard.py --refresh
+```
+
+Other flags:
+
+```bash
+python src/dashboard.py --skip-extras   # only the original charts 01–10
+                                        #   (skips hospitalization, variant
+                                        #    overlay, forecast, and choropleth)
+python src/dashboard.py --outdir path/  # custom output directory
+```
+
+**Troubleshooting — "the README images don't show":**
+
+- **PNG files are missing from `outputs/`.** Run `python src/dashboard.py` (without `--skip-extras`) to generate all 13 PNGs plus the choropleth HTML. The script prints a one-line confirmation as it writes each file.
+- **Only `11_hospitalization.png`, `12_waves_with_variants.png`, or `13_forecast.png` are missing.** These are the "extras" — the script was likely run with `--skip-extras`. Re-run without that flag.
+- **`13_forecast.png` is missing while the others are present.** The forecast chart needs `scipy` (for SIR/SEIR fitting). If `scipy` isn't installed, the chart degrades to a placeholder PNG with an explanatory message rather than crashing the run. `pip install scipy` and re-run. Prophet is optional — the chart shows SIR + SEIR fine without it, just with one fewer line.
+- **`14_choropleth_*.png` is missing but the `.html` is there.** That's expected — static PNG export needs the optional `kaleido` package. The interactive HTML is the primary artefact and is written either way.
 
 ---
 
@@ -127,19 +163,6 @@ python src/dashboard.py
 
 # 4b. ...or launch the interactive app
 python interactive/app.py
-```
-
-The first run downloads the dataset (~94 MB) and caches it under `data/`. Subsequent runs use the cache. Use `--refresh` to force re-download:
-
-```bash
-python src/dashboard.py --refresh
-```
-
-Other flags:
-
-```bash
-python src/dashboard.py --skip-extras   # only the original charts 01–10
-python src/dashboard.py --outdir path/  # custom output directory
 ```
 
 To explore the data interactively in Jupyter:
@@ -201,6 +224,7 @@ OWID stopped daily updates of this dataset in **August 2024**, so this represent
 - **Aggregate rows** (e.g. `World`, `Africa`, `European Union`) are flagged by a missing `continent` value and split out from country rows.
 - **Sparse reporting cadences** — different metrics update on different schedules. Code uses last-non-null values per metric, not just the last row.
 - **Sparse hospitalization data** — only ~30–40 mostly-high-income countries ever reported hospital/ICU occupancy. The hospitalization chart drops countries with no data rather than failing.
+- **Vaccination rates above 100%** — `people_fully_vaccinated_per_hundred` counts doses against the *resident* population, so countries that vaccinated tourists or migrant workers (UAE, Gibraltar, Cuba, etc.) legitimately exceed 100. The vaccination chart caps bar widths at 100% for visual clarity and labels the bar with the real value plus a footnote.
 - **Early-pandemic CFR noise** — the chart filters out pre-April-2020 data, when reporting lag between cases and deaths produced impossible CFR values >100%.
 - **China's December 2022 reporting jump** — a single huge spike in the global curve corresponds to reclassification after dropping zero-COVID, not a real one-day surge.
 

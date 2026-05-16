@@ -153,6 +153,19 @@ def plot_vaccination_coverage(countries: pd.DataFrame, outdir: Path) -> Path:
     idx = valid.groupby("location", observed=True)["date"].idxmax()
     latest = valid.loc[idx].sort_values("people_fully_vaccinated_per_hundred")
 
+    # OWID's `people_fully_vaccinated_per_hundred` can legitimately exceed 100%
+    # because doses are counted against the *resident* population — countries
+    # that vaccinated tourists or migrant workers (e.g. UAE, Gibraltar, Cuba),
+    # or had stale population estimates, can show values >100. We display those
+    # bars capped at 100% to avoid the chart looking broken, but the bar label
+    # shows the real reported value (with a "*" pointing to a footnote) so the
+    # reader knows what's going on. The previous version set xlim to 115 and
+    # let a "103%" bar render, which read like a bug at first glance.
+    latest = latest.copy()
+    latest["vax_display"] = latest["people_fully_vaccinated_per_hundred"].clip(
+        upper=100
+    )
+
     top10 = latest.tail(10)
     bot10 = latest.head(10)
 
@@ -160,28 +173,45 @@ def plot_vaccination_coverage(countries: pd.DataFrame, outdir: Path) -> Path:
     # stay on their own side and don't collide with the other panel.
     fig, axes = plt.subplots(1, 2, figsize=(16, 7))
 
-    axes[0].barh(top10["location"], top10["people_fully_vaccinated_per_hundred"],
+    axes[0].barh(top10["location"], top10["vax_display"],
                  color=PALETTE[2], edgecolor="white")
     axes[0].set_title("Highest full-vaccination coverage")
     axes[0].set_xlabel("% of population fully vaccinated")
-    axes[0].set_xlim(0, 115)
+    axes[0].set_xlim(0, 108)  # tiny headroom past 100% cap so labels fit
 
-    axes[1].barh(bot10["location"], bot10["people_fully_vaccinated_per_hundred"],
+    axes[1].barh(bot10["location"], bot10["vax_display"],
                  color=PALETTE[3], edgecolor="white")
     axes[1].set_title("Lowest full-vaccination coverage")
     axes[1].set_xlabel("% of population fully vaccinated")
-    axes[1].set_xlim(0, 115)
+    axes[1].set_xlim(0, 108)
     # Put the right panel's country labels on the right side
     axes[1].yaxis.tick_right()
     axes[1].yaxis.set_label_position("right")
 
-    for ax in axes:
-        for p in ax.patches:
-            ax.text(p.get_width() + 1.5, p.get_y() + p.get_height()/2,
-                    f"{p.get_width():.1f}%", va="center", fontsize=9)
+    # Label bars with the *real* (uncapped) reported value, so the reader
+    # sees both the visually-capped bar and the actual OWID number. The "*"
+    # flags values that exceeded 100% and got clipped, pointing to the footnote.
+    for ax, panel_df in zip(axes, (top10, bot10)):
+        for p, real in zip(ax.patches,
+                           panel_df["people_fully_vaccinated_per_hundred"]):
+            label = f"{real:.1f}%"
+            if real > 100:
+                label += "*"
+            ax.text(p.get_width() + 1.5, p.get_y() + p.get_height() / 2,
+                    label, va="center", fontsize=9)
 
     fig.suptitle("Vaccination coverage — countries with population ≥ 5M",
                  fontsize=14, fontweight="bold", y=1.02)
+    # Footnote explaining the OWID >100% data quirk. Placed below the figure
+    # rather than inside an axes so it doesn't get clipped by either panel.
+    fig.text(
+        0.5, -0.02,
+        "* OWID reports doses-per-person against resident population, so "
+        "values can exceed 100% where tourists / migrant workers were "
+        "vaccinated or population estimates are stale. Bars are clipped at "
+        "100% for clarity; the label shows the actual reported value.",
+        ha="center", fontsize=8, style="italic", color="#555",
+    )
     fig.subplots_adjust(wspace=0.25)
     return save(fig, outdir, "04_vaccination_coverage")
 
